@@ -1,0 +1,62 @@
+﻿@page "/"
+@inject PeteLib.LocalStorage LocalStorage
+@inject PeteLib.LocalStorageSubscriptionManager LocalStorageSubscriptionManager
+@implements IAsyncDisposable
+
+<PageTitle>Index</PageTitle>
+
+@if (Person is not null)
+{
+	<EditForm Model=Person>
+		<div>
+			<label for="Salutation">Salutation</label>
+			<InputText id="Salutation" @bind-Value=Person.Salutation/>
+		</div>
+		<div>
+			<label for="GivenName">Given name</label>
+			<InputText id="GivenName" @bind-Value=Person.GivenName/>
+		</div>
+		<div>
+			<label for="FamilyName">Family name</label>
+			<InputText id="FamilyName" @bind-Value=Person.FamilyName/>
+		</div>
+		<button @onclick=SaveAsync>Save</button>
+	</EditForm>
+}
+
+@code {
+	Person Person = null!;
+
+	ValueTask IAsyncDisposable.DisposeAsync()
+	{
+		LocalStorageSubscriptionManager.RemoveAll(this);
+		return ValueTask.CompletedTask;
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		await base.OnInitializedAsync();
+		await LocalStorageSubscriptionManager.SubscribeAsync(this, "Person", ReloadData);
+		await GetPersonAsync();
+	}
+
+	private async ValueTask GetPersonAsync()
+	{
+		Person? result = await LocalStorage.GetAsync<Person?>("Person");
+		Person = result ?? new Person();
+	}
+
+	private void ReloadData()
+	{
+		_ = Task.Run(async () =>
+		{
+			await GetPersonAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async Task SaveAsync()
+	{
+		await LocalStorage.SetAsync("Person", Person);
+	}
+}
